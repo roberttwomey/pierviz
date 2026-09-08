@@ -1,0 +1,14 @@
+[Unit]
+Description=Scripps Pier cam kiosk playback
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jasper
+ExecStart=/home/jasper/work/pierviz/play_loop.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
