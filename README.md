@@ -43,3 +43,28 @@ with no box attached to the TV. Run it on a timer.
 Running on a Pi 3B+ (Debian 13 Trixie Lite, arm64) at `streaming.local` as
 `jasper`, from `~/work/pierviz/`, via `pierviz.service` (enabled at boot).
 Query the live player: `python3 /tmp/mpvq.py frame-drop-count hwdec-current`
+
+## Future development
+
+**Web interface on the Pi.** Serve a small control page from `streaming.local`
+so a phone, tablet, or laptop on the same network can drive the display without
+SSH. It would talk to the running player over the mpv IPC socket
+(`/tmp/mpv-pierviz.sock`), which `play_loop.sh` already opens.
+
+**Feed picker.** Let that page switch between several cams rather than the one
+hardcoded stream — surf or underwater, and not only San Diego. Candidates:
+
+- Scripps Pier underwater (HDOnTap) — the current feed, already working
+- Surfline, Scripps Pier —
+  https://www.surfline.com/surf-report/scripps/5842041f4e65fad6a7708839?camId=5cf9cab8d23ea6772d19cddf
+- Surfline, La Jolla Shores —
+  https://www.surfline.com/surf-report/la-jolla-shores/5842041f4e65fad6a77088cc?camId=58349b9b3421b20545c4b54d
+- Australia and elsewhere — TBD
+
+Worth knowing before starting: **each provider resolves differently.** The
+HDOnTap path solved here (public embed endpoint returning a signed URL to plain
+curl) does not generalize. Surfline cams sit behind an account, and their
+resolution flow is its own integration with its own access terms. Plan for a
+resolver per provider behind a common interface — `resolve_url.sh` becomes one
+implementation of that interface rather than the only one — and expect the feed
+list to carry credentials or entitlements for some sources but not others.
