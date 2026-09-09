@@ -34,6 +34,20 @@ with no box attached to the TV. Run it on a timer.
   1.99x with zero dropped frames.
 - On a Lite install there is no X server, so the player renders straight to
   KMS/DRM. The user must be in the `video` and `render` groups.
+- **Use `--vo=drm`, not `--vo=gpu`.** VideoCore IV has no usable GL path here
+  (mpv logs "High bit depth FBOs unsupported. Enabling dumb mode."), and the
+  software fallback renders at ~0.39x realtime. Playback then falls behind the
+  live edge and jumps forward every ~26s. Measured via the IPC socket: position
+  advancing +3.90s per 10s of wall clock, punctuated by +10/+20s catch-up jumps.
+  Note `frame-drop-count` stays 0 throughout -- with no audio track mpv never
+  engages drop logic, so the counter hides the fault. Measure the rate instead.
+- `--profile=low-latency` is wrong for a wall display: it sets a 4KiB stream
+  buffer, `cache-pause=no` (jump rather than wait) and `video-sync=audio` on a
+  stream with no audio. Latency is irrelevant here; smoothness is not.
+- The source playlist holds only 3 x 10s segments (30s). That is a tight window
+  with little margin, so anything that falls behind gets forced into a skip.
+  The source itself is healthy: segments arrive every 10.0s with contiguous PTS
+  and exactly 300 frames each.
 - The Pi 3B+ soft-throttles at 60C, dropping 1.4GHz to 1.2GHz. In a hot room it
   will sit there permanently; a heatsink is worth more than any software change.
 - Change `STREAM` in `resolve_url.sh` to point at a different HDOnTap cam.

@@ -8,8 +8,12 @@ cd "$(dirname "$0")"
 RESTART_AFTER="${RESTART_AFTER:-21600}"   # 6h, comfortably inside token life
 
 # On a Lite install there is no X server, so render straight to KMS/DRM.
+# Use --vo=drm (direct DRM plane), NOT --vo=gpu: VideoCore IV has no usable GL
+# path here ("High bit depth FBOs unsupported. Enabling dumb mode."), and the
+# software fallback renders ~0.39x realtime, so playback falls behind live and
+# jumps forward every ~26s to catch up.
 if [ -z "${DISPLAY:-}" ] && [ -e /dev/dri/card0 ]; then
-  VO_ARGS=(--vo=gpu --gpu-context=drm)
+  VO_ARGS=(--vo=drm)
 else
   VO_ARGS=(--fullscreen)
 fi
@@ -32,9 +36,9 @@ while true; do
     --no-audio \
     --no-osc --osd-level=0 --no-input-default-bindings \
     --cursor-autohide=always \
-    --profile=low-latency \
+    --cache=yes \
+    --demuxer-readahead-secs=25 \
     --hwdec="$HWDEC" \
-    --panscan=1.0 \
     --keep-open=no \
     --input-ipc-server=/tmp/mpv-pierviz.sock \
     --msg-level=all=warn &
