@@ -41,6 +41,11 @@ with no box attached to the TV. Run it on a timer.
   advancing +3.90s per 10s of wall clock, punctuated by +10/+20s catch-up jumps.
   Note `frame-drop-count` stays 0 throughout -- with no audio track mpv never
   engages drop logic, so the counter hides the fault. Measure the rate instead.
+- **Zero-copy `--hwdec=v4l2m2m` is worse than `v4l2m2m-copy` here** -- tested
+  on the real display: 0.70x vs 0.98x. The decoder's frames are not in a form
+  the DRM plane takes directly (mpv warns "Failed to create HW uploader for
+  format yuv420p"), so a conversion pass costs more than the copy it saves.
+  Do not retry this.
 - `--profile=low-latency` is wrong for a wall display: it sets a 4KiB stream
   buffer, `cache-pause=no` (jump rather than wait) and `video-sync=audio` on a
   stream with no audio. Latency is irrelevant here; smoothness is not.
