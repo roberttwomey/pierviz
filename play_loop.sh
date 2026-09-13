@@ -6,6 +6,7 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 RESTART_AFTER="${RESTART_AFTER:-21600}"   # 6h, comfortably inside token life
+BACKOFF=2
 
 # On a Lite install there is no X server, so render straight to KMS/DRM.
 # Use --vo=drm (direct DRM plane), NOT --vo=gpu: VideoCore IV has no usable GL
@@ -30,6 +31,7 @@ while true; do
     continue
   fi
   echo "$(date -Is) starting player" >&2
+  START=$(date +%s)
 
   mpv "$URL" \
     "${VO_ARGS[@]}" \
@@ -37,6 +39,7 @@ while true; do
     --no-osc --osd-level=0 --no-input-default-bindings \
     --cursor-autohide=always \
     --cache=yes \
+    --stream-lavf-o=reconnect=1,reconnect_streamed=1,reconnect_on_http_error=4xx\,5xx,reconnect_delay_max=30 \
     --demuxer-readahead-secs=25 \
     --hwdec="$HWDEC" \
     --keep-open=no \
@@ -49,6 +52,17 @@ while true; do
 
   wait "$PID"
   kill "$TIMER" 2>/dev/null
-  echo "$(date -Is) player exited; respawning" >&2
-  sleep 2
+
+  # A player that dies within a minute of starting is failing, not finishing
+  # (the Pi 3B+ SDIO wifi drops out under sustained load). Back off instead of
+  # respawning every 2s, which turns one outage into a visible crash loop.
+  RAN=$(( $(date +%s) - START ))
+  if [ "$RAN" -lt 60 ]; then
+    BACKOFF=$(( BACKOFF < 2 ? 2 : BACKOFF * 2 ))
+    [ "$BACKOFF" -gt 60 ] && BACKOFF=60
+  else
+    BACKOFF=2
+  fi
+  echo "$(date -Is) player exited after ${RAN}s; respawning in ${BACKOFF}s" >&2
+  sleep "$BACKOFF"
 done

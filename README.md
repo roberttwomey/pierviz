@@ -55,6 +55,17 @@ with no box attached to the TV. Run it on a timer.
   and exactly 300 frames each.
 - The Pi 3B+ soft-throttles at 60C, dropping 1.4GHz to 1.2GHz. In a hot room it
   will sit there permanently; a heatsink is worth more than any software change.
+- **The Pi 3B+ wifi drops out under sustained load.** Its Broadcom chip sits on
+  the SDIO bus and logs `brcmf_sdio_readframes: RXHEADER FAILED: -110` under a
+  continuous ~5Mbps stream, dropping RX packets in bursts. mpv then fails to
+  reload the HLS playlist and exits; the loop respawns it every 2s and one
+  outage becomes a 20-minute crash loop. Use wired ethernet. The reconnect and
+  backoff options in `play_loop.sh` soften it but do not cure it.
+- Headroom is essentially zero: this workload costs ~3 of 4 cores at the
+  throttled 1.2GHz, holding 0.97-1.00x when cool (~72C) and collapsing to 0.47x
+  when warm (~75C). Output mode makes no difference (1080p30 and 720p60 both
+  measured; 720p is worse, since downscaling costs more CPU than it saves).
+  Cooling is the only remaining lever on a 3B+.
 - Change `STREAM` in `resolve_url.sh` to point at a different HDOnTap cam.
 
 ## Deployed
