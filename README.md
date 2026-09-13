@@ -61,6 +61,17 @@ with no box attached to the TV. Run it on a timer.
   reload the HLS playlist and exits; the loop respawns it every 2s and one
   outage becomes a 20-minute crash loop. Use wired ethernet. The reconnect and
   backoff options in `play_loop.sh` soften it but do not cure it.
+- **A 1.00x playback rate does NOT mean healthy playback.** mpv holds the rate
+  by dropping frames, so rate is blind to frame dropping and `frame-drop-count`
+  was blind to the earlier `--vo=gpu` stall (it read 0 throughout). The two
+  metrics have opposite blind spots: always read them together.
+- **A 3B+ cannot render this stream.** With hardware decode active and
+  `--vo=drm`, it still drops ~60% of frames (measured: 359 of ~600 in 20s),
+  rendering ~12fps of the required 30. CPU sits at ~310% of 400% at the
+  throttled 1.2GHz. Closing that gap needs ~2.5x; cooling returns ~17% and the
+  spare core ~29%, so cooling alone cannot fix it. `--vo=drm` did remove the
+  gross 10-20s skips, but it changed the symptom rather than curing it. Use a
+  Pi 4/5 for smooth 1080p30 -- which also brings wired ethernet.
 - Headroom is essentially zero: this workload costs ~3 of 4 cores at the
   throttled 1.2GHz, holding 0.97-1.00x when cool (~72C) and collapsing to 0.47x
   when warm (~75C). Output mode makes no difference (1080p30 and 720p60 both
