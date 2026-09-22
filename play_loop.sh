@@ -9,20 +9,35 @@ RESTART_AFTER="${RESTART_AFTER:-21600}"   # 6h, comfortably inside token life
 BACKOFF=2
 
 # On a Lite install there is no X server, so render straight to KMS/DRM.
-# Use --vo=drm (direct DRM plane), NOT --vo=gpu: VideoCore IV has no usable GL
-# path here ("High bit depth FBOs unsupported. Enabling dumb mode."), and the
-# software fallback renders ~0.39x realtime, so playback falls behind live and
-# jumps forward every ~26s to catch up.
+#
+# --vo=gpu-next (libplacebo) is the only output here that accepts the zero-copy
+# DRM prime buffers the hardware decoder produces. Measured on a Pi 4 at
+# 1080p60: 11.3% CPU with zero dropped frames, against 311% for --vo=drm
+# (which mpv itself documents as "software scaling") and 54% dropped frames for
+# plain --vo=gpu. See README.
+#
+# The mode must be pinned. Left to itself mpv takes the display's preferred
+# mode, and a 4K TV offers 3840x2160 -- four times the pixels, for a 1080p
+# stream the TV will upscale for free anyway. On a Pi 4 that alone drops
+# playback to 0.17x realtime.
 if [ -z "${DISPLAY:-}" ] && [ -e /dev/dri/card0 ]; then
-  VO_ARGS=(--vo=drm)
+  # The v3d render node also appears as a DRM card and cannot drive a display,
+  # so pick whichever card actually owns the HDMI connectors.
+  DRM_CARD=$(ls -d /sys/class/drm/card*-HDMI-* 2>/dev/null | head -1 \
+             | xargs -r basename | cut -d- -f1)
+  DRM_CARD="${DRM_CARD:-card0}"
+  VO_ARGS=(--vo=gpu-next --gpu-context=drm
+           --drm-device="/dev/dri/$DRM_CARD"
+           --drm-mode="${DRM_MODE:-1920x1080@60}")
 else
   VO_ARGS=(--fullscreen)
 fi
 
-# Pi 3's VideoCore IV hardware H.264 decoder. Must be named explicitly:
-# --hwdec=auto-safe excludes v4l2m2m and falls back to software (~0.95x realtime,
-# i.e. dropping frames). Override with HWDEC=no to compare.
-HWDEC="${HWDEC:-v4l2m2m-copy}"
+# Name the V4L2 decoder explicitly: --hwdec=auto-safe excludes it and falls
+# back to software. Use v4l2m2m (zero-copy), NOT v4l2m2m-copy -- the copy pulls
+# every frame out to CPU memory and back, which costs ~65% CPU here and 300%+
+# with a software-scaling VO. A Pi 5 has no H.264 block at all: use HWDEC=no.
+HWDEC="${HWDEC:-v4l2m2m}"
 
 while true; do
   if ! URL=$(./resolve_url.sh); then

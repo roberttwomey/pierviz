@@ -77,6 +77,32 @@ with no box attached to the TV. Run it on a timer.
   when warm (~75C). Output mode makes no difference (1080p30 and 720p60 both
   measured; 720p is worse, since downscaling costs more CPU than it saves).
   Cooling is the only remaining lever on a 3B+.
+
+### Output path (Pi 4) -- measured, 1080p60, 20s samples
+
+| config | rate | frames dropped | CPU |
+|---|---|---|---|
+| `gpu-next` + `v4l2m2m` (zero-copy) | 1.001x | **0%** | **11.3%** |
+| `gpu-next` + `v4l2m2m-copy` | 1.002x | 13% | 65% |
+| `drm` + `v4l2m2m-copy` | 1.003x | 14% | 311% |
+| `gpu` + `v4l2m2m` (zero-copy) | 1.001x | 54% | 7% |
+| `drm` + `v4l2m2m-copy` @ 4K (unpinned mode) | 0.17x | 0% | 352% |
+
+- **Pin the output mode.** Left alone, mpv takes the display's preferred mode; a
+  4K TV offers 3840x2160, four times the pixels, for a 1080p stream the TV
+  upscales for free regardless. On a Pi 4 that alone drops playback to 0.17x.
+  This cannot happen on a 3B+, which has no 4K output -- so it appears only
+  after moving the card to newer hardware.
+- **`--vo=gpu-next` is required for zero-copy**, not `--vo=gpu`. Only libplacebo
+  imports the decoder's DRM prime buffers; plain `gpu` takes them cheaply (7%
+  CPU) and then drops half the frames.
+- **`--vo=drm` is software scaling** -- mpv's own VO list says so. It was right
+  on a 3B+ only because that board had no working GL at all.
+- `--video-sync=display-resample` does not add throughput; it converts dropped
+  frames into slow motion. Both ways presented ~15fps in the GL-copy tests.
+- On a Pi 4 the v3d render node also appears as a DRM card and cannot drive a
+  display, so the script picks whichever card owns the HDMI connectors.
+
 - Change `STREAM` in `resolve_url.sh` to point at a different HDOnTap cam.
 
 ## Deployed
