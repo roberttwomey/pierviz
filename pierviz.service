@@ -7,6 +7,12 @@ Wants=network-online.target
 Type=simple
 User=jasper
 ExecStart=/home/jasper/work/pierviz/play_loop.sh
+# Zero-copy decoding holds a dmabuf fd per decoded surface and climbs well past
+# the default 1024 soft limit within a minute, at which point gpu-next logs
+# "Failed to duplicate dmabuf fd: Too many open files" and renders nothing.
+# The hard limit is already 524288.
+LimitNOFILE=65536
+
 Restart=always
 RestartSec=10
 
