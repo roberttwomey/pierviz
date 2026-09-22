@@ -33,11 +33,14 @@ else
   VO_ARGS=(--fullscreen)
 fi
 
-# Name the V4L2 decoder explicitly: --hwdec=auto-safe excludes it and falls
-# back to software. Use v4l2m2m (zero-copy), NOT v4l2m2m-copy -- the copy pulls
-# every frame out to CPU memory and back, which costs ~65% CPU here and 300%+
-# with a software-scaling VO. A Pi 5 has no H.264 block at all: use HWDEC=no.
-HWDEC="${HWDEC:-v4l2m2m}"
+# Software decode. Counter-intuitive, but measured: a Pi 4 software-decodes
+# 1080p30 at 117% CPU (of 400% available) with zero dropped frames and a flat
+# file-descriptor count. Both V4L2 hardware paths leak dmabuf descriptors --
+# zero-copy at one per frame (~30/s), which exhausts even a 65536 limit in ~35
+# minutes and then renders nothing. Hardware decode is cheaper per frame and
+# unusable over hours. This also works unchanged on a Pi 5, which has no H.264
+# block. Set HWDEC=v4l2m2m only for short runs. See README.
+HWDEC="${HWDEC:-no}"
 
 while true; do
   if ! URL=$(./resolve_url.sh); then

@@ -82,7 +82,8 @@ with no box attached to the TV. Run it on a timer.
 
 | config | rate | frames dropped | CPU |
 |---|---|---|---|
-| `gpu-next` + `v4l2m2m` (zero-copy) | 1.001x | **0%** | **11.3%** |
+| `gpu-next` + `no` (software decode) | 1.000x | **0%** | 117% |
+| `gpu-next` + `v4l2m2m` (zero-copy) | 1.001x | 0% | 11.3% (leaks fds) |
 | `gpu-next` + `v4l2m2m-copy` | 1.002x | 13% | 65% |
 | `drm` + `v4l2m2m-copy` | 1.003x | 14% | 311% |
 | `gpu` + `v4l2m2m` (zero-copy) | 1.001x | 54% | 7% |
@@ -93,6 +94,16 @@ with no box attached to the TV. Run it on a timer.
   upscales for free regardless. On a Pi 4 that alone drops playback to 0.17x.
   This cannot happen on a 3B+, which has no 4K output -- so it appears only
   after moving the card to newer hardware.
+- **Both V4L2 hardware decode paths leak file descriptors.** Zero-copy leaks one
+  dmabuf fd per frame (measured: +753 every 25s, exactly 30.1/s against 30fps
+  content), so it exhausts the default 1024 limit in under a minute and even
+  65536 in ~35 minutes, after which gpu-next logs "Failed to duplicate dmabuf
+  fd: Too many open files" and renders nothing. `v4l2m2m-copy` leaks more slowly
+  (~5/s) and drops 14% of frames regardless. Software decode holds a flat fd
+  count and drops nothing, so it is the only path that survives. Raising
+  LimitNOFILE cannot fix a linear leak; it only moves the failure later.
+- Benchmark for minutes, not seconds. The zero-copy leak needs ~60s at the
+  default limit to surface, so a 30s benchmark rates it the clear winner.
 - **`--vo=gpu-next` is required for zero-copy**, not `--vo=gpu`. Only libplacebo
   imports the decoder's DRM prime buffers; plain `gpu` takes them cheaply (7%
   CPU) and then drops half the frames.
